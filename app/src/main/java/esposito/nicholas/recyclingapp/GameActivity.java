@@ -1,6 +1,7 @@
 package esposito.nicholas.recyclingapp;
 
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ClipData;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -15,6 +16,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.DragEvent;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -45,16 +47,31 @@ public class GameActivity extends AppCompatActivity {
     public static final String GREENBIN_TAG = "Green";
     public static final String BLACKBIN_TAG = "Black";
     public static final String TRASHCAN_TAG = "Trash";
+    private Boolean isHighScore = false;
+    private Boolean isSoundOn;
     public String answer = "Black";
     private int index = 0;
     private int score = 0;
     String trashObjectName = "Error";
     CountDownTimer timer,timer1;
+    MediaPlayer backgroundMusic;
     ErrorCollection errorCollection = ErrorCollection.getInstance();
+    private LocalDB db = new LocalDB(GameActivity.this);
+
+    @Override
+    protected void onPostResume() {
+        super.onPostResume();
+        if (isSoundOn) {
+            backgroundMusic.start();
+        }
+
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
+        isSoundOn = getIntent().getExtras().getBoolean("SOUNDSTATUS");
         errorCollection.emptyErrors();
         green = (ImageView) findViewById(R.id.greenBasketImg);
         black = (ImageView) findViewById(R.id.organicBasketImg);
@@ -63,6 +80,16 @@ public class GameActivity extends AppCompatActivity {
         rubbish = (ImageView) findViewById(R.id.trashObject);
         scoreView = (TextView) findViewById(R.id.ScoreView);
         okview = (ImageView) findViewById(R.id.okview);
+        ImageView back = (ImageView) findViewById(R.id.backArrow);
+        back.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                timer.cancel();
+                if(backgroundMusic!=null)
+                    backgroundMusic.stop();
+                finish();
+            }
+        });
         final TextView countdownView = (TextView) findViewById(R.id.timerView);
         //Assign a touch listener to the rubbish object to make it draggable
         rubbish.setOnTouchListener(new MyTouchListener());
@@ -77,6 +104,9 @@ public class GameActivity extends AppCompatActivity {
         blue.setTag(BLUEBIN_TAG);
         trash.setOnDragListener(new MyDragListener(context));
         trash.setTag(TRASHCAN_TAG);
+        if (isSoundOn) {
+            backgroundMusic = MediaPlayer.create(getApplicationContext(),R.raw.background);
+        }
         timer = new CountDownTimer(11000,1000) {//A countdoun timer is set for the player allowed playing time
             @Override
             public void onTick(long millisUntilFinished) {
@@ -86,49 +116,20 @@ public class GameActivity extends AppCompatActivity {
             @Override
             public void onFinish() {//When the timer finish a dialog pops up
                 countdownView.setText("Timer: 0");
-                AlertDialog.Builder builderSingle = new AlertDialog.Builder(GameActivity.this);
-                builderSingle.setTitle("Time is over!");
-                builderSingle.setMessage("You scored: "+score);
-                if(errorCollection.getErrors().size()>0){
-                builderSingle.setPositiveButton("See my errors", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        AlertDialog.Builder builderInner = new AlertDialog.Builder(
-                                GameActivity.this);
-                        final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(GameActivity.this, R.layout.error_list,R.id.error_text);
-                        arrayAdapter.addAll(errorCollection.getErrors());
-                        builderInner.setPositiveButton(
-                                "Ok",
-                                new DialogInterface.OnClickListener() {
-                                    @Override
-                                    public void onClick(
-                                            DialogInterface dialog,
-                                            int which) {
-                                        finish();
-                                    }
-                                });
-                        builderInner.setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                String url = "http://www.bathnes.gov.uk/services/bins-rubbish-and-recycling/recycling-and-rubbish-collections";
-                                Intent i = new Intent(Intent.ACTION_VIEW);
-                                i.setData(Uri.parse(url));
-                                finish();
-                                startActivity(i);
-                            }
-                        });
-                        builderInner.show();
+                isHighScore = false;
+                if(db.getHighScore()!=null)
+                {
+                    if(score>db.getHighScore())
+                    {db.UpdateHighScore(score);
+                        isHighScore=true;}
+                }
+                else{
+                    if(score>0)
+                    { db.UpdateHighScore(score);
+                        isHighScore = true;
                     }
-                });}
-                builderSingle.setNegativeButton(
-                        "cancel",
-                        new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                finish();
-                            }
-                        });
-                builderSingle.show();
+                }
+                finalDialog();
             }
         };
         timer.start();
@@ -194,18 +195,22 @@ public class GameActivity extends AppCompatActivity {
                         scoreView.setText("Score: "+score);
                         okview.setImageResource(R.drawable.earthsmile);
                         okview.setVisibility(View.VISIBLE);
-                        MediaPlayer mp =  MediaPlayer.create(getApplicationContext(), R.raw.correct);
-                        mp.start();
+                        if (isSoundOn) {
+                            MediaPlayer mp =  MediaPlayer.create(getApplicationContext(), R.raw.correct);
+                            mp.start();
+                        }
                         timer1.start();
                     }
                     else
-                    {Toast.makeText(context, dragdata.toLowerCase() + "s should be trashed in the " + answer+ " bin!", Toast.LENGTH_SHORT).show();
-                        okview.setImageResource(R.drawable.sadearth);
+                    {   okview.setImageResource(R.drawable.sadearth);
                         okview.setVisibility(View.VISIBLE);
                         timer1.start();
                         errorCollection.addError(dragdata.toLowerCase() + "s should be trashed in the " + answer+ " bin!");
-                        MediaPlayer mp1 = MediaPlayer.create(getApplicationContext(), R.raw.error);
-                    mp1.start();
+                        if (isSoundOn) {
+                            MediaPlayer mp1 = MediaPlayer.create(getApplicationContext(), R.raw.error);
+                            mp1.start();
+                        }
+
                    }
                     changeImage();//get the new trash object
                     break;
@@ -256,4 +261,77 @@ public class GameActivity extends AppCompatActivity {
 
     }
 
+    public void finalDialog(){
+        if (isSoundOn) {
+            backgroundMusic.stop();
+        }
+        AlertDialog.Builder finalDialogBuilder = new AlertDialog.Builder(GameActivity.this);
+        finalDialogBuilder.setCancelable(false);
+        finalDialogBuilder.setTitle("Time is over!");
+        if(isHighScore){
+            if (isSoundOn) {
+                MediaPlayer gong = MediaPlayer.create(getApplicationContext(),R.raw.fireworks);
+                gong.start();
+            }
+            ImageView image = new ImageView(GameActivity.this);
+            image.setImageResource(R.drawable.fireworks);
+            finalDialogBuilder.setMessage("New Highscore!: "+score).setView(image);
+        }
+        else{
+        finalDialogBuilder.setMessage("You scored: "+score);
+            if (isSoundOn) {
+                MediaPlayer gong = MediaPlayer.create(getApplicationContext(),R.raw.gong);
+                gong.start();
+            }
+        }
+        if(errorCollection.getErrors().size()>0){
+            finalDialogBuilder.setPositiveButton("See my errors", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    AlertDialog.Builder builderInner = new AlertDialog.Builder(
+                            GameActivity.this);
+                    final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(GameActivity.this, R.layout.error_list,R.id.error_text);
+                    arrayAdapter.addAll(errorCollection.getErrors());
+                    builderInner.setPositiveButton(
+                            "Ok",
+                            new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(
+                                        DialogInterface dialog,
+                                        int which) {
+                                    finish();
+                                }
+                            });
+                    builderInner.setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            String url = "http://www.bathnes.gov.uk/services/bins-rubbish-and-recycling/recycling-and-rubbish-collections";
+                            Intent i = new Intent(Intent.ACTION_VIEW);
+                            i.setData(Uri.parse(url));
+                            finish();
+                            startActivity(i);
+                        }
+                    });
+                    builderInner.show();
+                }
+            });}
+        finalDialogBuilder.setNegativeButton(
+                "cancel",
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        finish();
+                    }
+                });
+        finalDialogBuilder.show();
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        timer.cancel();
+        if(backgroundMusic!=null)
+            backgroundMusic.stop();
+        finish();
+    }
 }

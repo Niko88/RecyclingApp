@@ -81,9 +81,15 @@ tools:context="esposito.nicholas.recyclingapp.GameActivity">
     android:textColor="#000000"
     android:id="@+id/ScoreView"
     android:layout_alignParentTop="true"
-    android:layout_alignParentRight="true"
+   android:layout_centerHorizontal="true"
     android:textStyle="bold"
     android:textSize="20dp"/>
+    <ImageView
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@drawable/ic_arrow_back_black_24dp"
+        android:id="@+id/backArrow"
+        android:layout_alignParentLeft="true"/>
 
     <TextView
         android:layout_width="wrap_content"
@@ -95,6 +101,6 @@ tools:context="esposito.nicholas.recyclingapp.GameActivity">
         android:textColor="#000000"
         android:id="@+id/timerView"
         android:layout_alignParentTop="true"
-        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
         android:layout_alignBottom="@id/ScoreView"/>
 </RelativeLayout>
